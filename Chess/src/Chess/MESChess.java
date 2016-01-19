@@ -118,7 +118,7 @@ public class MESChess extends JPanel implements MouseListener, Runnable {
 	private void drawOptions(Graphics g) {
 		for (int[] hint : hints) {
 			if (hint[2] == 0) {
-				g.setColor(new Color(255, 215, 0));
+				g.setColor(new Color(255, 250, 0));
 				g.fillRect(xOff + 5 + hint[0] * 70, yOff + 5 + hint[1] * 70, 60, 60);
 			}
 			if (hint[2] == 1) {
