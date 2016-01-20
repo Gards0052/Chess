@@ -20,6 +20,8 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 
+import abc.Rating;
+
 public class MESChess extends JPanel implements MouseListener, Runnable {
 
 	public static final int WIDTH = 800;
@@ -31,10 +33,13 @@ public class MESChess extends JPanel implements MouseListener, Runnable {
 	private Graphics g;
 
 	private boolean running;
+	private boolean down;
 	private int FPS = 30;
 	private int targetTime = 1000 / FPS;
 	private int xOff = 120;
 	private int yOff = 20;
+	private int turn = 1;
+	private int[] selectedMove;
 
 	private Board board = new Board();
 	private Position kingWhite, kingBlack;
@@ -140,51 +145,51 @@ public class MESChess extends JPanel implements MouseListener, Runnable {
 			switch (board.get(i % 8, i / 8)) {
 			case "A":
 				x = 0;
-				y = 0;
+				y = 1 - turn;
 				break;
 			case "a":
 				x = 0;
-				y = 1;
+				y = turn;
 				break;
 			case "Q":
 				x = 1;
-				y = 0;
+				y = 1 - turn;
 				break;
 			case "q":
 				x = 1;
-				y = 1;
+				y = turn;
 				break;
 			case "B":
 				x = 2;
-				y = 0;
+				y = 1 - turn;
 				break;
 			case "b":
 				x = 2;
-				y = 1;
+				y = turn;
 				break;
 			case "K":
 				x = 3;
-				y = 0;
+				y = 1 - turn;
 				break;
 			case "k":
 				x = 3;
-				y = 1;
+				y = turn;
 				break;
 			case "R":
 				x = 4;
-				y = 0;
+				y = 1 - turn;
 				break;
 			case "r":
 				x = 4;
-				y = 1;
+				y = turn;
 				break;
 			case "P":
 				x = 5;
-				y = 0;
+				y = 1 - turn;
 				break;
 			case "p":
 				x = 5;
-				y = 1;
+				y = turn;
 				break;
 			}
 			if (x != -1 && y != -1) {
@@ -215,45 +220,12 @@ public class MESChess extends JPanel implements MouseListener, Runnable {
 		kingWhite = new Position();
 		kingBlack = new Position();
 
+		selectedMove = new int[2];
+
 		running = true;
 
 		image = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_RGB);
 		g = (Graphics2D) image.getGraphics();
-	}
-
-	@Override
-	public void mouseClicked(MouseEvent e) {
-		try {
-			if (new Rectangle(xOff, yOff, 560, 560).contains(e.getX(), e.getY())) {
-				int x = (e.getX() - xOff) / 70;
-				int y = (e.getY() - yOff) / 70;
-				System.out.println(x + ", " + y + "-" + board.get(x, y));
-				hints.clear();
-				if (Character.isUpperCase(board.get(x, y).charAt(0))) {
-					if (board.get(x, y).equals("A")) {
-						possibleA(x, y);
-					}
-					if (board.get(x, y).equals("Q")) {
-						possibleQ(x, y);
-					}
-					if (board.get(x, y).equals("B")) {
-						possibleB(x, y);
-					}
-					if (board.get(x, y).equals("K")) {
-						possibleK(x, y);
-					}
-					if (board.get(x, y).equals("R")) {
-						possibleR(x, y);
-					}
-					if (board.get(x, y).equals("P")) {
-						possibleP(x, y);
-					}
-				}
-			}
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		}
-
 	}
 
 	public void possibleA(int x, int y) {
@@ -372,10 +344,47 @@ public class MESChess extends JPanel implements MouseListener, Runnable {
 
 	public void possibleP(int x, int y) {
 		hints.add(new int[] { x, y, 0 });
+		for (int d = -1; d <= 1; d += 2) {
+			try { // capture
+				if (Character.isLowerCase(board.get(x + d, y - 1).charAt(0))) {
+					if (kingSafe(x, y, x + d, y - 1, board.get(x + d, y - 1)))
+						hints.add(new int[] { x + d, y - 1, 2 });
+				}
+			} catch (ArrayIndexOutOfBoundsException ex) {
+			}
+			try { // promo with capture
+				if (Character.isLowerCase(board.get(x + d, y - 1).charAt(0)) && y == 1) {
+					if (kingSafe(x, y, x + d, y - 1, board.get(x + d, y - 1)))
+						hints.add(new int[] { x + d, y - 1, 3 });
+				}
+			} catch (ArrayIndexOutOfBoundsException ex) {
+			}
+			try { // promo no capture
+				if (Character.isLowerCase(board.get(x, y - 1).charAt(0)) && y == 1) {
+					if (kingSafe(x, y, x, y - 1, board.get(x, y - 1)))
+						hints.add(new int[] { x, y - 1, 3 });
+				}
+			} catch (ArrayIndexOutOfBoundsException ex) {
+			}
+			try { // one up
+				if (board.get(x, y - 1, " ")) {
+					if (kingSafe(x, y, x, y - 1, board.get(x, y - 1)))
+						hints.add(new int[] { x, y - 1, 1 });
+				}
+			} catch (ArrayIndexOutOfBoundsException ex) {
+			}
+			try { // two up
+				if (board.get(x, y - 1, " ") && board.get(x, y - 2, " ") && y == 6) {
+					if (kingSafe(x, y, x, y - 2, board.get(x, y - 2)))
+						hints.add(new int[] { x, y - 2, 1 });
+				}
+			} catch (ArrayIndexOutOfBoundsException ex) {
+			}
+		}
 	}
 
 	public boolean kingSafe(int x1, int y1, int x2, int y2, String take) {
-		board.makeMove(x1, y1, x2, y2, take);
+		board.makeMove(x1, y1, x2, y2, take, turn);
 		// bishop/queen
 		int temp = 1;
 		for (int x = -1; x <= 1; x += 2) {
@@ -386,7 +395,7 @@ public class MESChess extends JPanel implements MouseListener, Runnable {
 					}
 					if (board.get(kingWhite.getX() + temp * x, kingWhite.getY() + temp * y, "b")
 							|| board.get(kingWhite.getX() + temp * x, kingWhite.getY() + temp * y, "q")) {
-						board.undoMove(x1, y1, x2, y2, take);
+						board.undoMove(x1, y1, x2, y2, take, turn);
 						return false;
 					}
 				} catch (Exception e) {
@@ -401,7 +410,7 @@ public class MESChess extends JPanel implements MouseListener, Runnable {
 					temp++;
 				}
 				if (board.get(kingWhite.getX() + temp * d, kingWhite.getY(), "r") || board.get(kingWhite.getX() + temp * d, kingWhite.getY(), "q")) {
-					board.undoMove(x1, y1, x2, y2, take);
+					board.undoMove(x1, y1, x2, y2, take, turn);
 					return false;
 				}
 			} catch (Exception e) {
@@ -412,7 +421,7 @@ public class MESChess extends JPanel implements MouseListener, Runnable {
 					temp++;
 				}
 				if (board.get(kingWhite.getX(), kingWhite.getY() + temp * d, "r") || board.get(kingWhite.getX(), kingWhite.getY() + temp * d, "q")) {
-					board.undoMove(x1, y1, x2, y2, take);
+					board.undoMove(x1, y1, x2, y2, take, turn);
 					return false;
 				}
 			} catch (Exception e) {
@@ -424,14 +433,14 @@ public class MESChess extends JPanel implements MouseListener, Runnable {
 			for (int y = -1; y <= 1; y += 2) {
 				try {
 					if (board.get(kingWhite.getX() + x * 2, kingWhite.getY() + y, "k")) {
-						board.undoMove(x1, y1, x2, y2, take);
+						board.undoMove(x1, y1, x2, y2, take, turn);
 						return false;
 					}
 				} catch (Exception e) {
 				}
 				try {
 					if (board.get(kingWhite.getX() + x, kingWhite.getY() + y * 2, "k")) {
-						board.undoMove(x1, y1, x2, y2, take);
+						board.undoMove(x1, y1, x2, y2, take, turn);
 						return false;
 					}
 				} catch (Exception e) {
@@ -442,14 +451,14 @@ public class MESChess extends JPanel implements MouseListener, Runnable {
 		if (kingWhite.getY() >= 2) {
 			try {
 				if (board.get(kingWhite.getX() - 1, kingWhite.getY() - 1, "p")) {
-					board.undoMove(x1, y1, x2, y2, take);
+					board.undoMove(x1, y1, x2, y2, take, turn);
 					return false;
 				}
 			} catch (Exception e) {
 			}
 			try {
 				if (board.get(kingWhite.getX() + 1, kingWhite.getY() - 1, "p")) {
-					board.undoMove(x1, y1, x2, y2, take);
+					board.undoMove(x1, y1, x2, y2, take, turn);
 					return false;
 				}
 			} catch (Exception e) {
@@ -460,7 +469,7 @@ public class MESChess extends JPanel implements MouseListener, Runnable {
 					if (x != 0 || y != 0) {
 						try {
 							if (board.get(kingWhite.getX() + x, kingWhite.getY() + y, "a")) {
-								board.undoMove(x1, y1, x2, y2, take);
+								board.undoMove(x1, y1, x2, y2, take, turn);
 								return false;
 							}
 						} catch (Exception e) {
@@ -469,21 +478,88 @@ public class MESChess extends JPanel implements MouseListener, Runnable {
 				}
 			}
 		}
-		board.undoMove(x1, y1, x2, y2, take);
+		board.undoMove(x1, y1, x2, y2, take, turn);
 		return true;
 	}
 
-	@Override
-	public void mouseEntered(MouseEvent e) {}
+	private void getHints(int x, int y) {
+		down = true;
+		hints.clear();
+		selectedMove[0] = x;
+		selectedMove[1] = y;
+		if (Character.isUpperCase(board.get(x, y).charAt(0))) {
+			if (board.get(x, y, "A"))
+				possibleA(x, y);
+			if (board.get(x, y, "Q"))
+				possibleQ(x, y);
+			if (board.get(x, y, "B"))
+				possibleB(x, y);
+			if (board.get(x, y, "K"))
+				possibleK(x, y);
+			if (board.get(x, y, "R"))
+				possibleR(x, y);
+			if (board.get(x, y, "P"))
+				possibleP(x, y);
+			if (board.get(x, y, " ")) {
+				down = false;
+				selectedMove[0] = 0;
+				selectedMove[1] = 0;
+			}
+		}
+	}
 
 	@Override
-	public void mouseExited(MouseEvent e) {}
+	public void mouseClicked(MouseEvent e) {
+		try {
+			if (new Rectangle(xOff, yOff, 560, 560).contains(e.getX(), e.getY())) {
+				int x = (e.getX() - xOff) / 70;
+				int y = (e.getY() - yOff) / 70;
+				System.out.println(x + ", " + y + "-" + board.get(x, y));
+
+				if (down) {
+					boolean valid = false;
+					for (int[] hint : hints) {
+						if (x != selectedMove[0] || y != selectedMove[1]) {
+							if (x == hint[0] && y == hint[1]) {
+								System.out.println("move " + selectedMove[0] + selectedMove[1] + x + y + board.get(x, y));
+								board.makeMove(selectedMove[0], selectedMove[1], x, y, board.get(x, y), turn);
+								turn = 1 - turn;
+								board.flip();
+								hints.clear();
+								valid = true;
+								break;
+							}
+						}
+					}
+					if (!valid) {
+						getHints(x, y);
+
+					}
+				} else {
+					getHints(x, y);
+				}
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+
+	}
 
 	@Override
-	public void mousePressed(MouseEvent e) {}
+	public void mouseEntered(MouseEvent e) {
+	}
 
 	@Override
-	public void mouseReleased(MouseEvent e) {}
+	public void mouseExited(MouseEvent e) {
+	}
+
+	@Override
+	public void mousePressed(MouseEvent e) {
+	}
+
+	@Override
+	public void mouseReleased(MouseEvent e) {
+	}
 
 	public static void main(String[] args) throws Exception {
 		JFrame window = new JFrame("Chess Client");
@@ -505,12 +581,17 @@ public class MESChess extends JPanel implements MouseListener, Runnable {
 				if (message.startsWith("move")) {
 					String args = message.substring(5);
 					chess.board.makeMove(Character.getNumericValue(args.charAt(0)), Character.getNumericValue(args.charAt(1)),
-							Character.getNumericValue(args.charAt(2)), Character.getNumericValue(args.charAt(3)), String.valueOf(args.charAt(4)));
+							Character.getNumericValue(args.charAt(2)), Character.getNumericValue(args.charAt(3)), String.valueOf(args.charAt(4)),
+							chess.turn);
 				}
 				if (message.startsWith("undo")) {
 					String args = message.substring(5);
 					chess.board.undoMove(Character.getNumericValue(args.charAt(0)), Character.getNumericValue(args.charAt(1)),
-							Character.getNumericValue(args.charAt(2)), Character.getNumericValue(args.charAt(3)), String.valueOf(args.charAt(4)));
+							Character.getNumericValue(args.charAt(2)), Character.getNumericValue(args.charAt(3)), String.valueOf(args.charAt(4)),
+							chess.turn);
+				}
+				if (message.equals("reset")) {
+					chess.board = new Board();
 				}
 				tf.setText("");
 			}
